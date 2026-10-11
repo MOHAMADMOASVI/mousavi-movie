@@ -1,0 +1,644 @@
+/* The fonts live in ./fonts so the pages look the same with no internet, also inside the TV app.
+   Alexandria draws the Persian ۴ in a shape that reads as ۳, so the digits alone come from Vazirmatn. */
+@font-face { font-family: "Alexandria"; font-weight: 400; font-display: swap; src: url(fonts/alexandria-400.ttf) format("truetype"); }
+@font-face { font-family: "Alexandria"; font-weight: 500; font-display: swap; src: url(fonts/alexandria-500.ttf) format("truetype"); }
+@font-face { font-family: "Alexandria"; font-weight: 600; font-display: swap; src: url(fonts/alexandria-600.ttf) format("truetype"); }
+@font-face { font-family: "Alexandria"; font-weight: 700; font-display: swap; src: url(fonts/alexandria-700.ttf) format("truetype"); }
+@font-face { font-family: "Vazirmatn"; font-weight: 400; font-display: swap; src: url(fonts/digits-400.ttf) format("truetype"); unicode-range: U+06F0-06F9; }
+@font-face { font-family: "Vazirmatn"; font-weight: 500; font-display: swap; src: url(fonts/digits-500.ttf) format("truetype"); unicode-range: U+06F0-06F9; }
+@font-face { font-family: "Vazirmatn"; font-weight: 600; font-display: swap; src: url(fonts/digits-600.ttf) format("truetype"); unicode-range: U+06F0-06F9; }
+@font-face { font-family: "Vazirmatn"; font-weight: 700; font-display: swap; src: url(fonts/digits-700.ttf) format("truetype"); unicode-range: U+06F0-06F9; }
+
+/* A streaming-service layout: a full-width banner for the featured film, then shelves of
+   cards that scroll sideways. Sizes are in rem and the root scales with the viewport, so
+   the same layout reads from a phone in the hand and from a TV across the room. Kept to
+   CSS that older TV browsers understand (no aspect-ratio, inset, or flex gap). */
+
+/* The colours: black with a yellow accent. */
+:root {
+  --bg: #0f0f0f;
+  --bg-rgb: 15, 15, 15;
+  --surface: #1c1c1c;
+  --line: #2e2e2e;
+  --text: #f5f5f5;
+  --muted: #a3a3a3;
+  --accent: #f6b300;
+  --accent-ink: #151000;
+  --radius: .55rem;
+  font-size: 16px;
+  font-size: clamp(14px, 1.12vw, 28px);
+}
+/* Motion is kept light for low-memory TVs: short one-off fades and a scale on the selected
+   item, nothing that runs continuously or keeps extra layers alive. */
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise { from { opacity: 0; transform: translateY(1rem); } to { opacity: 1; transform: none; } }
+@keyframes pop {
+  0% { transform: translate(-50%, -50%) scale(.8); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+* { box-sizing: border-box; }
+
+html, body { min-height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Vazirmatn", "Alexandria", "IRANSans", -apple-system, "Segoe UI", Tahoma, sans-serif;
+  font-weight: 400;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  animation: fade .4s ease-out;
+}
+
+h1, h2, p { margin: 0; }
+svg { fill: currentColor; }
+:focus { outline: none; }
+[hidden] { display: none !important; }
+
+/* Key hints: a miniature of the remote's direction pad with the relevant part lit. */
+.key {
+  width: 1.9em;
+  height: 1.9em;
+  margin-inline-end: .5em;
+  vertical-align: middle;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.key .ring { fill: rgba(255, 255, 255, .08); stroke: rgba(255, 255, 255, .22); stroke-width: 1; }
+.key .off { opacity: .22; }
+.key .dot { stroke: none; fill: #fff; }
+.key .dot.on { fill: var(--accent); }
+.key path.on { stroke: var(--accent); }
+
+.hints { color: var(--muted); font-size: .8rem; }
+.hints > span { display: inline-block; margin-inline-start: 1.6em; white-space: nowrap; }
+.hints > span:first-child { margin-inline-start: 0; }
+
+/* ---------- shared pieces ---------- */
+
+.logo { flex: none; width: 2.4rem; height: 2.4rem; }
+
+.btn, .pill {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+/* Buttons are light slabs with dark text; focus is shown by growing, not by a ring. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: .75rem 1.5rem;
+  border-radius: .5rem;
+  background: #f5f5f5;
+  color: #1a1a1a;
+  font-size: .9rem;
+  font-weight: 700;
+  line-height: 1.4;
+  transition: transform .18s ease-out, background .16s, color .16s;
+}
+.btn:active { transform: scale(.95); }
+.btn:hover { background: #fff; }
+.btn:focus { transform: scale(1.07); background: #fff; }
+.btn.ghost { background: rgba(255, 255, 255, .16); color: #f5f5f5; }
+.btn.ghost:hover { background: rgba(255, 255, 255, .28); }
+.btn.ghost:focus { background: #fff; color: #1a1a1a; }
+
+.url { display: flex; align-items: center; direction: ltr; }
+.url code {
+  flex: 1;
+  min-width: 0;
+  margin-right: .6rem;
+  padding: .55rem .8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, .35);
+  color: var(--text);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: .78rem;
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+/* A film card, used on the home shelves and in the player's "other films" strip. */
+.track {
+  display: flex;
+  padding: 1rem 4vw 1.2rem; /* room for the focused card to grow without being clipped */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.track::-webkit-scrollbar { display: none; }
+.card {
+  flex: 0 0 16rem;
+  display: block;
+  margin-inline-end: 1.1rem;
+  color: var(--text);
+  text-decoration: none;
+  transition: transform .18s ease-out;
+}
+.thumb {
+  position: relative;
+  display: block;
+  padding-top: 56.25%; /* 16:9 */
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.thumb > svg {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 22%;
+  margin: -11% 0 0 -11%;
+  color: rgba(255, 255, 255, .16);
+}
+.thumb img {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.card-title {
+  display: block;
+  margin-top: .55rem;
+  color: var(--muted);
+  font-size: .85rem;
+  font-weight: 400;
+  line-height: 1.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color .16s;
+}
+.card:hover .thumb { box-shadow: 0 0 0 .12rem rgba(255, 255, 255, .35); }
+.card:focus { transform: scale(1.07); }
+.card:focus .thumb { box-shadow: 0 0 0 .2rem var(--accent); }
+.card:focus .card-title { color: var(--text); }
+
+.badge {
+  position: absolute;
+  bottom: .5rem;
+  padding: 0 .5em;
+  border-radius: .35em;
+  background: rgba(0, 0, 0, .78);
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 500;
+  line-height: 1.9;
+}
+.badge.dur { left: .5rem; direction: ltr; }
+.badge.vlc { right: .5rem; color: var(--accent); }
+.badge.now { top: .5rem; bottom: auto; right: .5rem; background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.badge.done { top: .5rem; bottom: auto; left: .5rem; display: none; }
+.card[data-state="done"] .badge.done { display: block; }
+.prog {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  display: none;
+  height: .3rem;
+  background: rgba(255, 255, 255, .3);
+  direction: ltr;
+}
+.prog i { display: block; width: 0; height: 100%; background: var(--accent); }
+.card[data-state="partial"] .prog { display: block; }
+
+/* Tall poster cards, cropped from the middle of the film's frame. */
+.posters .card { flex-basis: 10.5rem; }
+.posters .thumb { padding-top: 150%; }
+
+/* ---------- home ---------- */
+
+.nav {
+  position: absolute; /* scrolls away with the banner, which also keeps remote navigation geometric */
+  top: 0; left: 0; right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  padding: .9rem 4vw 2.2rem;
+  background: linear-gradient(rgba(0, 0, 0, .75), transparent);
+  pointer-events: none;
+}
+.nav > * { pointer-events: auto; }
+.brand { flex: 1; font-size: 1.1rem; font-weight: 600; }
+.hero {
+  position: relative;
+  height: 68vh;
+  min-height: 20rem;
+  background: var(--surface);
+  overflow: hidden;
+  contain: paint;
+}
+.hero-bg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: opacity .26s ease-out;
+}
+.hero-body > * {
+  animation: rise .55s cubic-bezier(.2, .8, .2, 1) backwards;
+  transition: opacity .22s ease-out, transform .22s ease-out;
+}
+.hero-body > :nth-child(2) { animation-delay: .07s; }
+.hero-body > :nth-child(3) { animation-delay: .14s; }
+.hero-body > :nth-child(4) { animation-delay: .21s; }
+/* Switching the banner to another film: the picture fades and the text slides out, then back. */
+.hero.switching .hero-bg { opacity: 0; }
+.hero.switching .hero-tag, .hero.switching h1, .hero.switching .hero-meta { opacity: 0; transform: translateX(1.5rem); }
+/* Fades the picture into the page at the bottom and darkens the side the text sits on. */
+.hero-shade {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: -2px;
+  background:
+    linear-gradient(to top, var(--bg) 0%, var(--bg) 7%, rgba(var(--bg-rgb), .55) 34%, transparent 68%),
+    linear-gradient(to left, rgba(var(--bg-rgb), .9) 0%, rgba(var(--bg-rgb), .45) 40%, transparent 70%);
+}
+.hero-body {
+  position: absolute;
+  right: 4vw; left: 4vw; bottom: 1.8rem;
+  max-width: 34rem;
+}
+.hero-tag {
+  display: inline-block;
+  padding: 0 .7em;
+  border-radius: 99rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: .75rem;
+  font-weight: 600;
+  line-height: 1.9;
+}
+.hero h1 {
+  margin-top: .6rem;
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-shadow: 0 .1rem 1rem rgba(0, 0, 0, .6);
+}
+.hero-meta { margin-top: .3rem; color: #d6d6d6; font-size: .95rem; }
+.hero-actions { display: flex; align-items: center; margin-top: 1.2rem; }
+.hero-actions .btn { font-size: 1rem; }
+.hero-actions .btn + .btn { margin-inline-start: .8rem; }
+.btn.play svg { width: 1.5em; height: 1.5em; margin-inline-end: .7em; }
+
+.shelves { position: relative; padding-top: .4rem; padding-bottom: 5rem; background: var(--bg); }
+.shelf { margin-bottom: .6rem; }
+.shelf h2 { padding: 0 4vw; font-size: 1.05rem; font-weight: 500; }
+.shelf h2 small { margin-inline-start: .5rem; color: var(--muted); font-size: .8rem; font-weight: 400; }
+
+.vlc-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-gap: 1.5rem;
+  align-items: center;
+  margin: 1.5rem 4vw 0;
+  padding: 1.2rem 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.vlc-card h2 { font-size: 1rem; font-weight: 600; }
+.vlc-card p { color: var(--muted); font-size: .84rem; }
+
+.statusbar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  padding: 1.6rem 4vw .8rem;
+  background: linear-gradient(transparent, var(--bg) 65%);
+  pointer-events: none;
+}
+
+.empty { padding: 24vh 6vw 0; text-align: center; }
+.empty .logo { display: block; width: 5rem; height: 5rem; margin: 0 auto 1.5rem; }
+.empty h1 { font-size: 1.6rem; font-weight: 700; }
+.empty p { margin-top: .6rem; color: var(--muted); }
+.empty code { padding: .1em .4em; border-radius: .3em; background: var(--surface); color: var(--text); }
+
+/* ---------- player ---------- */
+
+.player { background: #000; overflow: hidden; }
+.player video {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: #000;
+  object-fit: contain;
+}
+video::cue { background: rgba(0, 0, 0, .65); font-family: "Alexandria", Tahoma, sans-serif; }
+
+.ui { transition: opacity .35s; }
+.topbar { animation: fade .5s ease-out; }
+.fill i { transition: transform .2s; }
+.bar:hover .fill i { transform: scale(1.3); }
+.player.idle .ui { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .35s, visibility 0s .35s; }
+.player.idle { cursor: none; }
+
+.topbar, .bottom {
+  position: fixed;
+  left: 0; right: 0;
+  padding-left: 4vw;
+  padding-right: 4vw;
+}
+.topbar {
+  top: 0;
+  display: flex;
+  align-items: center;
+  padding-top: 1.4rem;
+  padding-bottom: 3.5rem;
+  background: linear-gradient(rgba(0, 0, 0, .85), transparent);
+}
+.topbar h1 {
+  flex: 1;
+  min-width: 0;
+  margin: 0 1.1rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: .4rem 1rem;
+  border-radius: 99rem;
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
+  font-size: .85rem;
+  font-weight: 500;
+}
+.pill { transition: transform .2s cubic-bezier(.2, .9, .3, 1.4), background .16s, color .16s; }
+.pill:hover { background: rgba(255, 255, 255, .26); }
+.pill:focus { transform: scale(1.1); }
+.pill:focus { background: var(--accent); color: var(--accent-ink); }
+.options .pill + .pill { margin-inline-start: .5rem; }
+.pill svg { width: 1.1em; height: 1.1em; margin-inline-end: .35em; }
+
+.bottom {
+  bottom: 0;
+  padding-top: 5rem;
+  padding-bottom: 1.5rem;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .88));
+  transition: opacity .2s;
+}
+.bar {
+  position: relative;
+  height: .4rem;
+  border-radius: 99rem;
+  background: rgba(255, 255, 255, .22);
+  direction: ltr;
+  cursor: pointer;
+  touch-action: none;
+}
+.bar::before { content: ""; position: absolute; top: -1rem; bottom: -1rem; left: 0; right: 0; } /* bigger touch target */
+.buf, .fill { position: absolute; top: 0; bottom: 0; left: 0; width: 0; border-radius: 99rem; }
+.buf { background: rgba(255, 255, 255, .28); }
+.fill { background: var(--accent); }
+.fill i {
+  position: absolute;
+  top: 50%; right: 0;
+  width: 1.1rem; height: 1.1rem;
+  margin: -.55rem -.55rem 0 0;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 .25rem rgba(255, 255, 255, .22);
+}
+.row { display: flex; align-items: center; justify-content: space-between; margin-top: .9rem; }
+.lead { display: flex; align-items: center; }
+.options { display: flex; margin-inline-start: 1.4rem; }
+.time { font-size: 1rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.bigplay {
+  position: fixed;
+  top: 50%; left: 50%;
+  width: 6rem; height: 6rem;
+  margin: -3rem 0 0 -3rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+}
+.bigplay svg { width: 45%; height: 45%; }
+
+.flash {
+  position: fixed;
+  top: 50%; left: 50%;
+  padding: .5rem 1.4rem;
+  border-radius: 99rem;
+  background: rgba(0, 0, 0, .75);
+  font-size: 1.15rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity .3s;
+  pointer-events: none;
+}
+.flash.on { opacity: 1; transition: none; animation: pop .28s ease-out; }
+
+.panel, .unsupported {
+  position: fixed;
+  top: 50%; left: 50%;
+  width: 36rem;
+  max-width: 92vw;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transform: translate(-50%, -50%);
+}
+.panel { box-shadow: 0 2rem 5rem rgba(0, 0, 0, .75); }
+.unsupported { top: 34%; }
+.panel h2, .unsupported h2 { font-size: 1.1rem; font-weight: 600; }
+.panel p, .unsupported p { margin: .3rem 0 1rem; color: var(--muted); font-size: .86rem; }
+
+/* The "other films" strip that slides up over the picture. */
+.rail {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  padding: 3.2rem 0 .8rem;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .94) 32%);
+  transform: translateY(100%);
+  transition: transform .34s cubic-bezier(.2, .8, .2, 1);
+}
+.rail h2 { margin: 0 4vw; font-size: 1.05rem; font-weight: 600; }
+.rail .card { flex-basis: 14rem; }
+.player.rail-open .rail { transform: none; }
+.player.rail-open .bottom { opacity: 0; }
+.player.rail-open.idle .ui { opacity: 1; }
+.novideo .rail { transform: none; }
+
+/* ---------- the Android TV app: lighter pictures and no blur; motion stays, as it only moves and fades ---------- */
+
+.lite .hero { height: 54vh; }
+.lite .hero-shade { background: linear-gradient(to top, var(--bg) 6%, rgba(var(--bg-rgb), .3) 75%); }
+.lite .nav { background: none; }
+.lite .statusbar { position: static; padding-top: 0; background: none; }
+.lite .shelves { padding-bottom: 1rem; }
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 640px) {
+  .hints { display: none; }
+  .hero { height: 58vh; }
+  .hero h1 { font-size: 1.35rem; }
+  .card { flex-basis: 11rem; }
+  .rail .card { flex-basis: 10rem; }
+  .posters .card { flex-basis: 7.5rem; }
+  .card:focus { transform: none; }
+  .vlc-card { grid-template-columns: 1fr; }
+  .shelves { padding-bottom: 2rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* ---------- TV home screen (/tv) ---------- */
+
+.tv .hero { height: 54vh; }
+.tv .brand { flex: none; }
+.tabs { flex: 1; display: flex; margin-inline-start: 2rem; }
+.tab {
+  margin-inline-end: .4rem;
+  padding: .15rem 1.1rem;
+  border-radius: 99rem;
+  color: #d6d6d6;
+  font-size: .9rem;
+  text-decoration: none;
+  transition: transform .18s ease-out, background .16s, color .16s;
+}
+.tab.on { color: #fff; font-weight: 600; box-shadow: inset 0 -.14rem 0 var(--accent); border-radius: 0; }
+.tab:hover { color: #fff; }
+.tab:focus { transform: scale(1.07); border-radius: 99rem; background: #f5f5f5; box-shadow: none; color: #1a1a1a; }
+.clock { flex: none; margin-inline-start: 1rem; text-align: left; line-height: 1.3; white-space: nowrap; }
+.clock b { display: block; font-size: 1.25rem; font-weight: 600; }
+.clock small { color: #d6d6d6; font-size: .75rem; }
+
+/* App tiles: wide banners like the Android TV app row. */
+.app {
+  flex: 0 0 12rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 6.75rem;
+  margin-inline-end: 1.1rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: #fff;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform .18s ease-out;
+}
+.app.own { background: #26235a; }
+.app > svg, .app > img { flex: none; width: 2.2rem; height: 2.2rem; margin-inline-end: .7rem; }
+.app > img { border-radius: .4rem; }
+.app.banner { padding: 0; overflow: hidden; }
+.app.banner > img { width: 100%; height: 100%; margin: 0; border-radius: 0; object-fit: cover; }
+.hero.nofilm { height: 34vh; min-height: 12rem; background: none; }
+.app.source { flex-basis: 9rem; height: 4.2rem; border: 1px solid var(--line); font-size: .9rem; font-weight: 500; }
+.app.source svg {
+  flex: none;
+  width: 1.5rem; height: 1.5rem;
+  margin-inline-end: .6rem;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.app.source.off { opacity: .45; }
+.app:hover { box-shadow: 0 0 0 .12rem rgba(255, 255, 255, .35); }
+.app:focus { transform: scale(1.07); box-shadow: 0 0 0 .2rem var(--accent); }
+
+.toast {
+  position: fixed;
+  left: 50%; bottom: 4.5rem;
+  z-index: 5;
+  padding: .5rem 1.3rem;
+  border-radius: 99rem;
+  background: #f5f5f5;
+  color: #1a1a1a;
+  font-size: .9rem;
+  opacity: 0;
+  transform: translateX(-50%);
+  transition: opacity .2s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* The resting screen: the page frosted over, with only the time and the day. */
+.rest {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--bg-rgb), .6);
+  -webkit-backdrop-filter: blur(1.6rem);
+  backdrop-filter: blur(1.6rem);
+  line-height: 1.4;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 1.2s, visibility 1.2s;
+}
+.lite .rest { background: rgba(var(--bg-rgb), .93); -webkit-backdrop-filter: none; backdrop-filter: none; } /* blur is too heavy for the TV */
+.resting .rest { opacity: 1; visibility: visible; }
+.rest b { font-size: 9rem; font-weight: 600; line-height: 1.1; }
+.rest span { font-size: 2.2rem; font-weight: 500; }
+.rest small { color: #d6d6d6; font-size: 1.2rem; }
+
+/* ---------- motion ---------- */
+/* Everything here only moves, scales or fades (no layout, no blur), and runs once, so it is
+   cheap enough for the TV as well. */
+
+@keyframes slide-in { from { opacity: 0; transform: translateX(-2rem); } to { opacity: 1; transform: none; } }
+@keyframes drop { from { opacity: 0; transform: translateY(-1rem); } to { opacity: 1; transform: none; } }
+@keyframes settle { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: none; } }
+@keyframes ring { 0% { box-shadow: 0 0 0 .2rem var(--accent), 0 0 0 .2rem rgba(246, 179, 0, .55); } 100% { box-shadow: 0 0 0 .2rem var(--accent), 0 0 0 1rem rgba(246, 179, 0, 0); } }
+
+.nav { animation: drop .5s ease-out backwards; }
+.hero-bg { animation: settle 1.1s cubic-bezier(.2, .8, .2, 1) backwards; }
+.shelf > h2 { animation: fade .5s ease-out .15s backwards; }
+/* The tiles of each shelf arrive one after another. */
+.track > * { animation: slide-in .45s cubic-bezier(.2, .8, .2, 1) backwards; }
+.track > :nth-child(1) { animation-delay: .12s; }
+.track > :nth-child(2) { animation-delay: .17s; }
+.track > :nth-child(3) { animation-delay: .22s; }
+.track > :nth-child(4) { animation-delay: .27s; }
+.track > :nth-child(5) { animation-delay: .32s; }
+.track > :nth-child(6) { animation-delay: .37s; }
+.track > :nth-child(n+7) { animation-delay: .42s; }
+
+/* The selected tile lifts with a little overshoot and its ring pulses once. */
+.card, .app, .tab, .btn { transition-timing-function: cubic-bezier(.2, .9, .3, 1.4); transition-duration: .22s; }
+.thumb, .app { transition: transform .22s cubic-bezier(.2, .9, .3, 1.4), box-shadow .22s; }
+.card:focus { transform: scale(1.09); }
+.card:focus .thumb, .app:focus { animation: ring .6s ease-out; }
+.app:focus { transform: scale(1.09); }
+.card:focus .thumb img { transform: scale(1.06); }
+.thumb img { transition: transform .5s ease-out; }
+.card:active, .app:active { transform: scale(.96); }
+.app > svg, .app > img { transition: transform .22s cubic-bezier(.2, .9, .3, 1.4); }
+.app:focus > svg, .app:not(.banner):focus > img { transform: scale(1.15) rotate(-4deg); }
+
+.toast { transform: translateX(-50%) translateY(1rem); transition: opacity .25s, transform .25s cubic-bezier(.2, .9, .3, 1.4); }
+.toast.show { transform: translateX(-50%); }
+.rest b { transform: scale(.9); transition: transform 1.2s cubic-bezier(.2, .8, .2, 1); }
+.resting .rest b { transform: none; }

@@ -1,0 +1,11 @@
+.DS_Store
+.cache/
+.idea/
+.claude/
+__pycache__/
+
+# Android TV build output and signing key
+android-tv/build/
+android-tv/signing.keystore
+*.keystore
+*.jks
